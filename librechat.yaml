@@ -1,0 +1,16 @@
+version: "1.2.8"
+cache: true
+
+endpoints:
+  custom:
+    - name: "Ollama"
+      apiKey: "ollama"
+      baseURL: "${OLLAMA_BASE_URL}"
+      models:
+        default:
+          - "llama3"
+          - "mistral"
+        fetch: true
+      modelDisplayLabel: "Ollama"
+      titleConvo: true
+      summarize: false

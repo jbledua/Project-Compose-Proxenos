@@ -1,0 +1,88 @@
+---
+services:
+  proxenos-ts:
+    image: tailscale/tailscale:latest
+    container_name: ${STACK_NAME:-proxenos}-ts
+    hostname: ${TS_HOSTNAME:-proxenos}
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+      - "TS_EXTRA_ARGS=--advertise-tags=tag:container --reset"
+    volumes:
+      - proxenos-ts-state:/var/lib/tailscale
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
+    restart: unless-stopped
+    ports:
+      - "${WEBUI_PORT:-3080}:3080"
+
+  proxenos-api:
+    image: ghcr.io/danny-avila/librechat-api:latest
+    container_name: ${STACK_NAME:-proxenos}-api
+    network_mode: service:proxenos-ts
+    depends_on:
+      - proxenos-ts
+      - proxenos-mongodb
+      - proxenos-meilisearch
+    env_file:
+      - .env
+    environment:
+      - HOST=0.0.0.0
+      - NODE_ENV=production
+      # Same network namespace: talk to DB/search via localhost
+      - MONGO_URI=mongodb://127.0.0.1:27017/LibreChat
+      - MEILI_HOST=http://127.0.0.1:7700
+    volumes:
+      # Custom endpoints + settings
+      - type: bind
+        source: ./librechat.yaml
+        target: /app/librechat.yaml
+
+      # Persistent LibreChat data
+      - proxenos-uploads:/app/uploads
+      - proxenos-logs:/app/api/logs
+      - proxenos-images:/app/client/public/images
+    restart: unless-stopped
+
+  proxenos-mongodb:
+    image: mongo:8.0.17
+    container_name: ${STACK_NAME:-proxenos}-mongodb
+    network_mode: service:proxenos-ts
+    depends_on:
+      - proxenos-ts
+    volumes:
+      - proxenos-mongo:/data/db
+    command: mongod --noauth
+    restart: unless-stopped
+
+  proxenos-meilisearch:
+    image: getmeili/meilisearch:v1.12.3
+    container_name: ${STACK_NAME:-proxenos}-meilisearch
+    network_mode: service:proxenos-ts
+    depends_on:
+      - proxenos-ts
+    env_file:
+      - .env
+    environment:
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY}
+    volumes:
+      - proxenos-meili:/meili_data
+    restart: unless-stopped
+
+volumes:
+  proxenos-ts-state:
+    name: ${STACK_NAME:-proxenos}-ts-state
+  proxenos-uploads:
+    name: ${STACK_NAME:-proxenos}-uploads
+  proxenos-logs:
+    name: ${STACK_NAME:-proxenos}-logs
+  proxenos-images:
+    name: ${STACK_NAME:-proxenos}-images
+  proxenos-mongo:
+    name: ${STACK_NAME:-proxenos}-mongo
+  proxenos-meili:
+    name: ${STACK_NAME:-proxenos}-meili
