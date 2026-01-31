@@ -26,6 +26,9 @@ services:
       - proxenos-ts
     environment:
       - OLLAMA_API_BASE_URL=${OLLAMA_API_BASE_URL}
+      - ENABLE_IMAGE_GENERATION=${ENABLE_IMAGE_GENERATION:-"false"}
+      - IMAGE_GENERATION_MODEL=${IMAGE_GENERATION_MODEL:-"automatic1111"}
+      - AUTOMATIC1111_BASE_URL=${AUTOMATIC1111_BASE_URL}
     volumes:
       - proxenos-openwebui-data:/app/backend/data
     restart: unless-stopped
